@@ -1,0 +1,457 @@
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.io.FileInputStream;
+import java.nio.ByteBuffer;
+import java.util.Scanner;
+import java.io.FileOutputStream;
+import java.security.SecureRandom;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class Main {
+    final static int DELTA = 0x9e3779b9;
+    final static int ROUNDS = 32;
+
+    public static void main(String[] args) {
+
+        commandRecognizer();
+    }
+    public void runExample(){
+        String text = "Aiogram3";
+        print("original: "+text);
+        byte[] bytesFromText = text.getBytes();
+        int[] block = bytesToNum(bytesFromText);
+        int[] key = generateKey();
+        int[] enc_block = encrypt(block, key);
+        print("encrypted:");
+        print(enc_block);
+        print("decrypted now");
+        int[] decrypted_block = decrypt(enc_block, key);
+        byte[] decrypted_bytes = numToBytes(decrypted_block);
+        String decrypted_text = new String(decrypted_bytes);
+        print(decrypted_text);
+    }
+    public static void createFile(String fileName){
+        try {
+            File file = new File(fileName);
+            // Создать пустой файл, если он не существует
+            if (file.createNewFile()) {
+//                System.out.println("Файл " + fileName + " успешно создан.");
+            } else {
+//                System.out.println("Файл " + fileName + " уже существует.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static int countCharactersInFile(String filePath) {
+        try {
+            FileReader fileReader = new FileReader(filePath);
+            int character;
+            int count = 0;
+
+            while ((character = fileReader.read()) != -1) {
+                // Подсчитываем каждый считанный символ
+                count++;
+            }
+
+            fileReader.close();
+            return count;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return -1; // В случае ошибки ввода-вывода возвращаем -1
+        }
+    }
+    public static int[] generateKey(){
+        int[] key = new int[4];
+        Random random = new Random();
+        for(int i=0; i<4; i++){
+            key[i] = random.nextInt();
+        }
+        return key;
+    }
+
+    public static int[] generateRandomIV() {
+        int[] iv = new int[2]; // IV длиной 2 слова (64 бита)
+        SecureRandom random = new SecureRandom();
+
+        for (int i = 0; i < iv.length; i++) {
+            iv[i] = random.nextInt(); // Генерируем случайное 32-битное слово
+        }
+
+        return iv;
+    }
+
+    public static void encryptReminder(List<Byte> reminder, int[] key){
+        int[] IV = generateRandomIV();
+        int reminderLength = reminder.size();
+        byte[] byteIV = numToBytes(IV);
+        byte[] nextByteIV = new byte[8];
+        int[] XORedInt = new int[2];
+        for(int i = reminderLength; i<8; i++){
+            nextByteIV[i] = byteIV[i-reminderLength];
+        }
+        int[] encryptedIV = encrypt(IV, key);
+        System.out.println("encrypted IV ="+encryptedIV[0]+"|"+encryptedIV[1]);
+        byte[] encryptedByteIV = numToBytes(encryptedIV);
+//        for( int i=0; i< reminderLength; i++){
+//            encryptedByteIV[i] = nextByteIV[8 - reminderLength + i];
+//        }
+        for( int i=0; i< (8-reminderLength); i++){
+            reminder.add((byte)0);
+        }
+        byte[] reminderByte = new byte[8];
+        for (int i=0; i<8; i++){
+            reminderByte[i] = reminder.get(i);
+        }
+//        for(byte b : reminderByte){
+//            System.out.println(String.valueOf(b));
+//        }
+        int[] reminderInt = bytesToNum(reminderByte);
+        //--------------------------------------------------------- XOR
+        XORedInt[0] = reminderInt[0] ^ encryptedIV[0];            //
+        XORedInt[1] = reminderInt[1] ^ encryptedIV[1];            //
+        //---------------------------------------------------------
+        byte[] XORedByte = numToBytes(XORedInt);
+        //---------------------------------------------------------обратный XOR
+        int[] checkXOR = new int[2];
+        checkXOR[0] = XORedInt[0] ^ encryptedIV[0];
+        checkXOR[1] = XORedInt[1] ^ encryptedIV[1];
+        byte[] checkXORbyte = numToBytes(checkXOR);
+        for(byte b: XORedByte){
+            System.out.println(String.valueOf(b)+"xored");
+        }
+        for(byte b: checkXORbyte){
+            System.out.println(String.valueOf(b)+"unxored");
+        }
+        //----------------------------------------------------------
+        OFB.IV = encryptedByteIV;
+        OFB.reminder = XORedByte;
+    }
+
+//    public static byte[] padTo8Bytes(byte[] input) {
+//        int blockSize = 8; // Размер блока 8 байт
+//        byte[] paddedBlock = new byte[blockSize];
+//
+//        for (int i = 0; i < blockSize; i++) {
+//            if (i < input.length) {
+//                paddedBlock[i] = input[i];
+//            } else {
+//                // Дополняем "NUL" (нулевыми байтами)
+//                paddedBlock[i] = 0;
+//            }
+//        }
+//
+//        return paddedBlock;
+//    }
+
+    public static int[] encrypt(int[] block, int[]key){
+        int v0 = block[0];
+        int v1 = block[1];
+        int sum = 0;
+
+        for(int i=0; i<ROUNDS; i++){
+            // Вычисляем значение sum
+            sum += DELTA;
+
+            // Выполняем операции алгоритма
+            v0 += ((v1 << 4) + key[0]) ^ (v1 + sum) ^ ((v1 >> 5) + key[1]);
+            v1 += ((v0 << 4) + key[2]) ^ (v0 + sum) ^ ((v0 >> 5) + key[3]);
+        }
+         block[0] = v0; block[1] = v1;
+         return block;
+     }
+
+    public static int[] decrypt(int[] block, int[] key){
+        int v0 = block[0];
+        int v1 = block[1];
+        int sum = DELTA * ROUNDS;
+
+        for(int i = 0; i < ROUNDS; i++){
+            // Выполняем операции алгоритма в обратном порядке
+            v1 -= ((v0 << 4) + key[2]) ^ (v0 + sum) ^ ((v0 >> 5) + key[3]);
+            v0 -= ((v1 << 4) + key[0]) ^ (v1 + sum) ^ ((v1 >> 5) + key[1]);
+            sum -= DELTA;
+        }
+
+        block[0] = v0;
+        block[1] = v1;
+        return block;
+    }
+
+    public static int[] bytesToNum(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        // Преобразовать первые 4 байта в 32-битное число
+        int num1 = buffer.getInt();
+        // Преобразовать следующие 4 байта во второе 32-битное число
+        int num2 = buffer.getInt();
+        int[] num = new int[2];
+        num[0] = num1;
+        num[1] = num2;
+        return num;
+    }
+    public static int[] bytesToNumKey(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        // Преобразовать первые 8 байт в 128-битное число
+        int num1 = buffer.getInt();
+        // Преобразовать следующие 8 байт во второе 128-битное число
+        int num2 = buffer.getInt();
+        int num3 = buffer.getInt();
+        int num4 = buffer.getInt();
+        int[] num = new int[4];
+        num[0] = num1;
+        num[1] = num2;
+        num[2] = num3;
+        num[3] = num4;
+        return num;
+    }
+
+    public static byte[] numToBytes(int[] num) {
+        int number1 = num[0];
+        int number2 = num[1];
+        Object o;
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+        // Записать первое 32-битное число
+        buffer.putInt(number1);
+        // Записать второе 32-битное число
+        buffer.putInt(number2);
+        // Получить байты и преобразовать их в текст
+        byte[] bytes = buffer.array();
+
+        return bytes;
+    }
+
+    public static byte[] numToBytesKey(int[] num) {
+        int number1 = num[0];
+        int number2 = num[1];
+        int number3 = num[2];
+        int number4 = num[3];
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        // Записать первое-четвёртое 32-битное число
+        buffer.putInt(number1);
+        buffer.putInt(number2);
+        buffer.putInt(number3);
+        buffer.putInt(number4);
+        // Получить байты и преобразовать их в текст
+        byte[] bytes = buffer.array();
+        return bytes;
+    }
+    public static void print(String str){
+         System.out.println(str);
+     }
+    public static void print(int str){
+        System.out.println(str+"");
+    }
+    public static void print(int[] str){
+        for(int i=0; i<str.length; i++){
+            System.out.println(str[i] +"");
+        }
+    }
+
+    public static byte[] readBlockFromFile(String fileName){
+        byte[] reserve = {1,1};
+        try (FileInputStream fis = new FileInputStream(fileName)) {
+            byte[] bytes = new byte[8];
+            int bytesRead = fis.read(bytes);
+            return bytes;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return reserve;
+    }
+
+    public static byte[] readKeyFromFile(String fileName){
+        byte[] reserve = {1,2};
+        try (FileInputStream fis = new FileInputStream(fileName)) {
+            byte[] bytes = new byte[16];
+            int bytesRead = fis.read(bytes);
+            return bytes;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return reserve;
+    }
+
+    public static void writeBytesToFile(String fileName, byte[] data) {
+        try (FileOutputStream fos = new FileOutputStream(fileName)) {
+            fos.write(data);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    public static void appendBytesToFile(String fileName, byte[] data) {
+        try (FileOutputStream fos = new FileOutputStream(fileName, true)) {
+            fos.write(data);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static void commandRecognizer(){
+        Scanner reader = new Scanner(System.in);
+        String userInput = reader.nextLine();
+        String[] command = userInput.split(" ");
+        if(command[0].equals("encrypt")){
+            if (command[1].equals("-e")) {
+                File keyFileD = new File("key.txt");
+                keyFileD.delete();
+                File encFileD = new File("input.txt.enc");
+                encFileD.delete();
+                File outputFileD = new File("output.txt");
+                outputFileD.delete();
+                File outputFileIV = new File("IV.txt");
+                outputFileIV.delete();
+                // ------------------------------------------------------------генерация ключа
+                int[] key_ = generateKey();                                             //
+                byte[] keyBYTES = numToBytesKey(key_);                                  //
+                writeBytesToFile("key.txt", keyBYTES);                          //
+                //------------------------------------------------------------------------
+                String originalFileName = command[2];
+                String keyFileName = command[3];
+                int countCharacters = countCharactersInFile("input.txt");
+                int numBlocks = countCharacters / 8;
+
+                if(countCharacters == 8){
+                    byte[] block = readBlockFromFile(originalFileName);
+                    byte[] key = readKeyFromFile(keyFileName);
+                    int[] numericKey = bytesToNumKey(key);
+                    int[] numericBlock = bytesToNum(block);
+                    int[] encryptedData = encrypt(numericBlock, numericKey);
+                    byte[] enc_bytes = numToBytes(encryptedData);
+                    writeBytesToFile("input.txt.enc", enc_bytes);
+                } else if (countCharacters % 8 == 0) {
+                    try {
+                        // Чтение ключа из файла
+                        byte[] key = readKeyFromFile(keyFileName);
+                        int[] numericKey = bytesToNumKey(key);
+
+                        // Создание потоков для чтения и записи данных
+                        FileInputStream inputFile = new FileInputStream("input.txt");
+                        FileOutputStream outputFile = new FileOutputStream("input.txt.enc");
+
+                        byte[] block = new byte[8]; // Буфер для блока данных
+
+                        for (int i = 0; i < numBlocks; i++) {
+                            int bytesRead = inputFile.read(block);
+                            if (bytesRead == -1) {
+                                break; // Достигнут конец файла
+                            }
+
+                            int[] numericBlock = bytesToNum(block);
+                            int[] encryptedData = encrypt(numericBlock, numericKey);
+                            byte[] enc_bytes = numToBytes(encryptedData);
+                            outputFile.write(enc_bytes);
+                        }
+
+                        inputFile.close();
+                        outputFile.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else{
+                    try {
+                        // Чтение ключа из файла
+                        byte[] key = readKeyFromFile(keyFileName);
+                        int[] numericKey = bytesToNumKey(key);
+
+                        // Создание потоков для чтения и записи данных
+                        FileInputStream inputFile = new FileInputStream("input.txt");
+                        FileOutputStream outputFile = new FileOutputStream("input.txt.enc");
+
+                        byte[] block = new byte[8]; // Буфер для блока данных
+                        List<Byte> reminder = new ArrayList<Byte>(); // хранение байтов остатка текста
+                        byte[] oneByte = new byte[1]; //буфер на 1 элемент для чтения остатка
+
+                        for (int i = 0; i < numBlocks; i++) {
+                            int bytesRead = inputFile.read(block);
+                            if (bytesRead == -1) {
+                                break; // Достигнут конец файла
+                            }
+
+                            int[] numericBlock = bytesToNum(block);
+                            int[] encryptedData = encrypt(numericBlock, numericKey);
+                            byte[] enc_bytes = numToBytes(encryptedData);
+                            outputFile.write(enc_bytes);
+                        }
+                        while (true){
+                            int bytesRead = inputFile.read(oneByte);
+                            if (bytesRead == -1) break;
+                            reminder.add(oneByte[0]);
+                        }
+                        inputFile.close();
+                        outputFile.close();
+                        encryptReminder(reminder, numericKey);
+                        byte[] checkReminder = OFB.reminder;
+                        byte[] checkIV = OFB.IV;
+                        appendBytesToFile("input.txt.enc", checkReminder);
+                        writeBytesToFile("IV.txt", checkIV);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            if (command[1].equals("-d")) {
+                String encryptedFileName = command[2];
+                String keyFileName = command[3];
+                int countCharacters = countCharactersInFile("input.txt");
+                int numBlocks = countCharacters / 8;
+                byte[] key = readKeyFromFile(keyFileName);
+                int[] numericKey = bytesToNumKey(key);
+                if(countCharacters == 8){
+                    byte[] encryptedBlock = readBlockFromFile(encryptedFileName);
+                    int[] numericBlock = bytesToNum(encryptedBlock);
+                    int[] decryptedBlock = decrypt(numericBlock, numericKey);
+                    byte[] decryptedBytesBlock = numToBytes(decryptedBlock);
+                    writeBytesToFile("output.txt", decryptedBytesBlock);
+                } else if (countCharacters % 8 == 0) {
+                    createFile("output.txt");
+                    for(int i=0; i<numBlocks; i++){
+                        byte[] block = readBlockFromFile("input.txt.enc");
+                        int[] numBlock = bytesToNum(block);
+                        int[] decryptedNumBlock = decrypt(numBlock, numericKey);
+                        byte[] decryptedByteBlock = numToBytes(decryptedNumBlock);
+                        appendBytesToFile("output.txt", decryptedByteBlock);
+                    }
+                } else{
+                    createFile("output.txt");
+                    byte[] block = new byte[8];
+                    int[] XORed = new int[2];
+                    try(FileInputStream fis = new FileInputStream("input.txt.enc")){
+                    for(int i=0; i<numBlocks+1; i++){
+                        fis.read(block);
+                        int[] numBlock = bytesToNum(block);
+                        if (i != numBlocks){
+                            int[] decryptedNumBlock = decrypt(numBlock, numericKey);
+                            byte[] decryptedByteBlock = numToBytes(decryptedNumBlock);
+                            appendBytesToFile("output.txt", decryptedByteBlock);
+                        } else{
+                            byte[] IV = readBlockFromFile("IV.txt");
+                            System.out.println("crypted opened reminder");
+                            for (byte b: block){
+                                System.out.println(b);
+                            }
+                            int[] numIV = bytesToNum(IV);
+                            System.out.println("num IV opened ="+numIV[0]+"|"+numIV[1]);
+                            XORed[0] = numIV[0] ^ numBlock[0];
+                            XORed[1] = numIV[1] ^ numBlock[1];
+                            byte[] byteXORed = numToBytes(XORed);
+                            System.out.println("decrypted reminder");
+                            for(byte b: byteXORed){
+                                System.out.println(String.valueOf(b));
+                            }
+                            appendBytesToFile("output.txt", byteXORed);
+                        }
+                    }
+                    } catch(IOException e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+}
