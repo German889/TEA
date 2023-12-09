@@ -1,3 +1,5 @@
+package laba2;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -5,22 +7,34 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Arrays;
 
 
 public class Encrypter {
-    public static void encryptProcess1block(String originalFileName, String keyFileName, String encryptedFileName){
+    public static void encryptProcess1block(String originalFileName, String keyFileName, String encryptedFileName, byte[] keyAnotherWay){
         byte[] block = Utility.readBlockFromFile(originalFileName);
-        byte[] key = Utility.readKeyFromFile(keyFileName);
+        byte[] key = new byte[16];
+        if(keyAnotherWay == null){
+            key = Utility.readKeyFromFile(keyFileName);
+        } else key = keyAnotherWay;
         int[] numericKey = Utility.bytesToNumKey(key);
         int[] numericBlock = Utility.bytesToNum(block);
         int[] encryptedData = encrypt(numericBlock, numericKey);
         byte[] enc_bytes = Utility.numToBytes(encryptedData);
         Utility.writeBytesToFile(encryptedFileName, enc_bytes);
     }
-    public static void encryptProcessFullBlocks(String keyFileName, String originalFileName, String encryptedFileName, int numBlocks){
+    public static void encryptProcessFullBlocks(String keyFileName, String originalFileName, String encryptedFileName, int numBlocks, byte[] keyAnotherWay){
         try {
             // Чтение ключа из файла
-            byte[] key = Utility.readKeyFromFile(keyFileName);
+            byte[] key = new byte[16];
+            if(keyAnotherWay == null){
+                key = Utility.readKeyFromFile(keyFileName);
+            }
+            else {
+                key = keyAnotherWay;
+            }
             int[] numericKey = Utility.bytesToNumKey(key);
 
             // Создание потоков для чтения и записи данных
@@ -47,10 +61,13 @@ public class Encrypter {
             e.printStackTrace();
         }
     }
-    public static void encryptProcessWithReminder(String originalFileName, String keyFileName, String encryptedFileName, int numBlocks){
+    public static void encryptProcessWithReminder(String originalFileName, String keyFileName, String encryptedFileName, int numBlocks, byte[] keyAnotherWay){
         try {
             // Чтение ключа из файла
-            byte[] key = Utility.readKeyFromFile(keyFileName);
+            byte[] key;
+;            if(keyAnotherWay == null){
+                key = Utility.readKeyFromFile(keyFileName);
+            } else key = keyAnotherWay;
             int[] numericKey = Utility.bytesToNumKey(key);
 
             // Создание потоков для чтения и записи данных
@@ -120,7 +137,7 @@ public class Encrypter {
         byte[] encryptedByteIV = Utility.numToBytes(encryptedIV);
 
         for( int i=0; i< (8-reminderLength); i++){
-            reminder.add((byte)0);
+            reminder.add((byte)0); // ======================== добавляем нули
         }
         byte[] reminderByte = new byte[8];
         for (int i=0; i<8; i++){
@@ -163,5 +180,33 @@ public class Encrypter {
         }
         block[0] = v0; block[1] = v1;
         return block;
+    }
+    public static void fullEncryptionProcess(String originalFileName, String keyFileName, byte[] keyAnotherWay){
+        Utility.cleanTheGarbage();
+        if(keyAnotherWay == null) {//-----------------------------------------------------генерация ключа
+            int[] key_ = Encrypter.generateKey();                                             //
+            byte[] keyBYTES = Utility.numToBytesKey(key_);                                  //
+            Utility.writeBytesToFile("key.txt", keyBYTES);                          //
+            //------------------------------------------------------------------------
+        }
+        String encryptedFileName = originalFileName.concat(".enc");
+        int countCharacters = Utility.countCharactersInFile(originalFileName);
+        int numBlocks = countCharacters / 8;
+
+        if(countCharacters == 8){
+            Encrypter.encryptProcess1block(originalFileName, keyFileName, encryptedFileName, keyAnotherWay);
+        } else if (countCharacters % 8 == 0) {
+            Encrypter.encryptProcessFullBlocks(keyFileName, originalFileName, encryptedFileName, numBlocks, keyAnotherWay);
+        } else{
+            Encrypter.encryptProcessWithReminder(originalFileName, keyFileName, encryptedFileName, numBlocks, keyAnotherWay);
+        }
+        // TODO: write IV to begin of file
+    }
+
+    public static byte[] encryptAES(byte[] plaintext, byte[] key) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+        SecretKeySpec secretKey = new SecretKeySpec(Arrays.copyOf(key, 32), "AES");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher.doFinal(plaintext);
     }
 }

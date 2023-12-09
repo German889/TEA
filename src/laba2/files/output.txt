@@ -7,4 +7,4 @@ the manual of your audio software for further assistance, if necessary!
 Sometimes, the audio software indeed would not provide an ASIO control panel option. This is the case for
 e.g. some ASIO output plugins in media player software. For configuring ASIO4ALL with these
 applications anyway, you can launch the control panel by clicking on the ASIO4ALL status icon in the
-System Tray area .giv
+System Tray area.6\‘51À„
