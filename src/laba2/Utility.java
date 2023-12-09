@@ -1,11 +1,10 @@
+package laba2;
+
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.nio.ByteBuffer;
-import java.util.Scanner;
 import java.security.SecureRandom;
 import java.io.IOException;
 
@@ -20,15 +19,18 @@ public class Utility {
             System.out.println(str[i] +"");
         }
     }
-    public static byte[] SHA_3_hash(byte[] before){ // хеширование силами великой Джавы
+    public static byte[] SHA_3_hash(char[] password){ // хеширование силами великой Джавы
         MessageDigest messageDigest = null;
         try {
+            byte[] passwordChars = convertToASCIIBytes(password);
             messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = messageDigest.digest(passwordChars);
+            return hash; //=====================================================на выходе.. 32 неповторимых байта
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
-        byte[] digest = messageDigest.digest(before);
-        return digest;
     }
     public static void createFile(String fileName){
         try {
@@ -172,4 +174,71 @@ public class Utility {
         byte[] bytes = buffer.array();
         return bytes;
     }
+    public static void enterPassword() throws UnsupportedEncodingException {
+        Console console = System.console();
+        if (console == null) {
+            System.out.println("Консоль недоступна");
+            System.exit(1);
+        }
+        char[] passwordArray = console.readPassword("enter password: ");
+        if (passwordArray != null) {
+            byte[] hash = SHA_3_hash(passwordArray);
+            Controller.hash = hash;
+            Arrays.fill(passwordArray, '0');
+//            return hash;
+        } else {
+            System.out.println("password was not entered");
+//        return null;
+        }
+    }
+    public static void simulatePasswordEntering(){
+        char[] passwordArray = {'a','b','o','b','a'};
+        byte[] hash = SHA_3_hash(passwordArray);
+        Controller.hash = hash;
+    }
+    public static byte[] convertToASCIIBytes(char[] chars) throws UnsupportedEncodingException {
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+
+        for (char c : chars) {
+            // Проверяем, что символ входит в диапазон ASCII (от 0 до 127)
+            if (c > 127) {
+                throw new UnsupportedEncodingException("Символ выходит за пределы кодировки ASCII");
+            }
+            // Преобразуем символ в байт ASCII
+            byteStream.write((byte) c);
+        }
+
+        return byteStream.toByteArray();
+    }
+    public static byte[] readLastBytesFromFile(String fileName, int bytesToRead) {
+        File file = new File(fileName);
+        byte[] lastBytes = new byte[bytesToRead];
+
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            long fileLength = raf.length();
+
+            if (fileLength < bytesToRead) {
+                System.out.println("File is smaller than requested bytes.");
+                return null;
+            }
+
+            raf.seek(fileLength - bytesToRead);
+            raf.read(lastBytes);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return lastBytes;
+    }
+    public static void deleteLastBytesFromFile(String filePath, int cutLength) {
+        try {
+            RandomAccessFile file = new RandomAccessFile(filePath, "rw");
+            long length = file.length();
+            file.setLength(length - cutLength);
+            file.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }
