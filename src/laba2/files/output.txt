@@ -1,0 +1,10 @@
+In order to make use of ASIO4ALL, you need to configure your audio software accordingly. How you would
+do this depends on your particular software application. Generally, you would always enter the audio
+configuration menu and select ASIO -> ASIO4ALL v2.
+There now should be a button to launch the ASIO control panel. How this button is labeled depends on your
+particular software. Once you press this button, the ASIO4ALL control panel should appear. Please consult
+the manual of your audio software for further assistance, if necessary!
+Sometimes, the audio software indeed would not provide an ASIO control panel option. This is the case for
+e.g. some ASIO output plugins in media player software. For configuring ASIO4ALL with these
+applications anyway, you can launch the control panel by clicking on the ASIO4ALL status icon in the
+System Tray area.6\‘51À„
