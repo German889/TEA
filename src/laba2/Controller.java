@@ -29,7 +29,7 @@ public class Controller {
                 } else if (countCharacters % 8 == 0) {
                     Encrypter.encryptProcessFullBlocks(keyFileName, originalFileName, encryptedFileName, numBlocks, null);
                 } else{
-                    Encrypter.encryptProcessWithReminder(originalFileName, keyFileName, encryptedFileName, numBlocks, null);
+                    Encrypter.encryptProcessWithReminder(originalFileName, keyFileName, encryptedFileName, numBlocks, null, false);
                 }
             }
             if (command[1].equals("-d")) {
@@ -81,8 +81,8 @@ public class Controller {
         Encrypter.fullEncryptionProcess("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\input.txt", "", session_key);
         try{
             Utility.print("enter password on latinica");
-//            Utility.enterPassword(); // ввод пароля
-            Utility.simulatePasswordEntering();
+            Utility.enterPassword(); // ввод пароля
+//            Utility.simulatePasswordEntering();
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -97,8 +97,8 @@ public class Controller {
         session_key = Utility.readLastBytesFromFile("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\input.txt.enc", 16);
         try{
             Utility.print("enter password using latinica");
-//            Utility.enterPassword();
-            Utility.simulatePasswordEntering();
+            Utility.enterPassword();
+//            Utility.simulatePasswordEntering();
             session_key = Decrypter.decryptAES(session_key, hash);
             Utility.deleteLastBytesFromFile("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\input.txt.enc", 16);
             Decrypter.fullDecryptionProcess("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\input.txt.enc", null, session_key);

@@ -26,7 +26,10 @@ public class Decrypter {
         Utility.createFile("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\output.txt");
         byte[] block = new byte[8];
         int[] XORed = new int[2];
+
         try(FileInputStream fis = new FileInputStream("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\input.txt.enc")){
+            byte[] IV = new byte[8]; //актуально для 3 лабы
+            fis.read(IV); //читаем вектор инициализации из начала файла
             for(int i=0; i<numBlocks+1; i++){
                 fis.read(block);
                 int[] numBlock = Utility.bytesToNum(block);
@@ -35,19 +38,22 @@ public class Decrypter {
                     byte[] decryptedByteBlock = Utility.numToBytes(decryptedNumBlock);
                     Utility.appendBytesToFile("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\output.txt", decryptedByteBlock);
                 } else{
-                    byte[] IV = Utility.readBlockFromFile("IV.txt");
-                    byte[] byteXORed = new byte[8];
-                    for(int g =0; g<8; g++){
-                        byteXORed[g] = (byte) (block[g] ^ IV[g]);
-                    }
+                    int[] numericReminder = Utility.bytesToNum(block);
+                    int[] numericIV = Utility.bytesToNum(IV);
+                    int[] xoredReminder = new int[2];
+
+                    xoredReminder[0] = numericReminder[0] ^ numericIV[0];
+                    xoredReminder[1] = numericReminder[1] ^ numericIV[1];
+                    byte[] byteXORed = Utility.numToBytes(xoredReminder);
+
                     int countNULs = 0;
                     for (int b=0;b<8;b++){
-                        if(byteXORed[b] == 0) countNULs++;
+                        if(byteXORed[b] == (byte) 0) countNULs++;
                     }
                     int countNotNULs = 8 - countNULs;
                     byte[] trimmedXORed = new byte[countNotNULs];
                     for(int h = 0;h<countNotNULs;h++){
-                        if(byteXORed[h] != 0) trimmedXORed[h] = byteXORed[h];
+                        if(byteXORed[h] != (byte) 0) trimmedXORed[h] = byteXORed[h];
                     }
                     Utility.appendBytesToFile("C:\\Users\\Givermaen\\IdeaProjects\\TEA\\TEA\\src\\laba2\\files\\output.txt", trimmedXORed);
                 }
