@@ -61,7 +61,7 @@ public class Encrypter {
             e.printStackTrace();
         }
     }
-    public static void encryptProcessWithReminder(String originalFileName, String keyFileName, String encryptedFileName, int numBlocks, byte[] keyAnotherWay){
+    public static void encryptProcessWithReminder(String originalFileName, String keyFileName, String encryptedFileName, int numBlocks, byte[] keyAnotherWay, boolean doWriteIVtoExternalFile){
         try {
             // Чтение ключа из файла
             byte[] key;
@@ -73,6 +73,10 @@ public class Encrypter {
             // Создание потоков для чтения и записи данных
             FileInputStream inputFile = new FileInputStream(originalFileName);
             FileOutputStream outputFile = new FileOutputStream(encryptedFileName);
+            int[] intIV = generateRandomIV();
+            byte[] inBeginFileIV = Utility.numToBytes(intIV);
+            outputFile.write(inBeginFileIV);
+
 
             byte[] block = new byte[8]; // Буфер для блока данных
             List<Byte> reminder = new ArrayList<Byte>(); // хранение байтов остатка текста
@@ -93,13 +97,14 @@ public class Encrypter {
                 if (bytesRead == -1) break;
                 reminder.add(oneByte[0]);
             }
+            OFB enc2Data = encryptReminder(reminder, numericKey, intIV);
+            byte[] checkReminder = enc2Data.reminder;
+            outputFile.write(checkReminder);
+            //Utility.appendBytesToFile("input.txt.enc", checkReminder);
             inputFile.close();
             outputFile.close();
-            encryptReminder(reminder, numericKey);
-            byte[] checkReminder = OFB.reminder;
-            byte[] checkIV = OFB.IV;
-            Utility.appendBytesToFile("input.txt.enc", checkReminder);
-            Utility.writeBytesToFile("IV.txt", checkIV);
+
+            if (doWriteIVtoExternalFile == true) Utility.writeBytesToFile("IV.txt", inBeginFileIV);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -123,8 +128,8 @@ public class Encrypter {
 
         return iv;
     }
-    public static void encryptReminder(List<Byte> reminder, int[] key){
-        int[] IV = generateRandomIV();
+    public static OFB encryptReminder(List<Byte> reminder, int[] key, int[] IV){
+//        int[] IV = generateRandomIV();
         int reminderLength = reminder.size();
         byte[] byteIV = Utility.numToBytes(IV);
         byte[] nextByteIV = new byte[8];
@@ -132,9 +137,8 @@ public class Encrypter {
         for(int i = reminderLength; i<8; i++){
             nextByteIV[i] = byteIV[i-reminderLength];
         }
-        int[] encryptedIV = encrypt(IV, key);
-        System.out.println("encrypted IV ="+encryptedIV[0]+"|"+encryptedIV[1]);
-        byte[] encryptedByteIV = Utility.numToBytes(encryptedIV);
+//        int[] encryptedIV = encrypt(IV, key);
+//        System.out.println("encrypted IV ="+encryptedIV[0]+"|"+encryptedIV[1]);
 
         for( int i=0; i< (8-reminderLength); i++){
             reminder.add((byte)0); // ======================== добавляем нули
@@ -146,24 +150,26 @@ public class Encrypter {
 
         int[] reminderInt = Utility.bytesToNum(reminderByte);
         //--------------------------------------------------------- XOR
-        XORedInt[0] = reminderInt[0] ^ encryptedIV[0];            //
-        XORedInt[1] = reminderInt[1] ^ encryptedIV[1];            //
+        XORedInt[0] = reminderInt[0] ^ IV[0];            //
+        XORedInt[1] = reminderInt[1] ^ IV[1];            //
         //---------------------------------------------------------
         byte[] XORedByte = Utility.numToBytes(XORedInt);
         //---------------------------------------------------------обратный XOR
-        int[] checkXOR = new int[2];
-        checkXOR[0] = XORedInt[0] ^ encryptedIV[0];
-        checkXOR[1] = XORedInt[1] ^ encryptedIV[1];
-        byte[] checkXORbyte = Utility.numToBytes(checkXOR);
-        for(byte b: XORedByte){
-            System.out.println(String.valueOf(b)+"xored");
-        }
-        for(byte b: checkXORbyte){
-            System.out.println(String.valueOf(b)+"unxored");
-        }
+//        int[] checkXOR = new int[2];
+//        checkXOR[0] = XORedInt[0] ^ encryptedIV[0];
+//        checkXOR[1] = XORedInt[1] ^ encryptedIV[1];
+//        byte[] checkXORbyte = Utility.numToBytes(checkXOR);
+//        for(byte b: XORedByte){
+//            System.out.println(String.valueOf(b)+"xored");
+//        }
+//        for(byte b: checkXORbyte){
+//            System.out.println(String.valueOf(b)+"unxored");
+//        }
         //----------------------------------------------------------
-        OFB.IV = encryptedByteIV;
-        OFB.reminder = XORedByte;
+        OFB encData = new OFB();
+        encData.IV = byteIV;
+        encData.reminder = XORedByte;
+        return encData;
     }
     public static int[] encrypt(int[] block, int[]key){
         int v0 = block[0];
@@ -198,7 +204,7 @@ public class Encrypter {
         } else if (countCharacters % 8 == 0) {
             Encrypter.encryptProcessFullBlocks(keyFileName, originalFileName, encryptedFileName, numBlocks, keyAnotherWay);
         } else{
-            Encrypter.encryptProcessWithReminder(originalFileName, keyFileName, encryptedFileName, numBlocks, keyAnotherWay);
+            Encrypter.encryptProcessWithReminder(originalFileName, keyFileName, encryptedFileName, numBlocks, keyAnotherWay, false);
         }
         // TODO: write IV to begin of file
     }
